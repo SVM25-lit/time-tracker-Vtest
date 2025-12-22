@@ -65,7 +65,7 @@ def create_event():
         'message': 'Event created successfully'
     }), 201
 
-# Добавьте в app/routes/web_routes.py
+#Это моё
 
 @web_bp.route('/schedule')
 @login_required
@@ -94,3 +94,28 @@ def schedule():
     return render_template('schedule.html', 
                           days=days, 
                           current_week=current_week)
+
+#Это тоже
+@web_bp.route('/api/v1/events/week/<week_str>', methods=['GET'])
+@login_required
+def get_events_by_week(week_str):
+    """Получить события за определенную неделю"""
+    try:
+        year, week = map(int, week_str.split('-W'))
+        
+        # Получаем первый день недели
+        first_day = datetime.strptime(f'{year}-{week}-1', '%Y-%W-%w')
+        last_day = first_day + timedelta(days=7)
+        
+        events = Event.query.filter(
+            Event.user_id == current_user.id,
+            Event.start_time >= first_day,
+            Event.start_time < last_day
+        ).join(Category).order_by(Event.start_time).all()
+        
+        events_list = [event.to_dict() for event in events]
+        
+        return jsonify({
+            'status': 'success',
+            'count': len(events_list),
+            '
