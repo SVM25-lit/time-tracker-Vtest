@@ -25,7 +25,7 @@ def get_categories():
         'categories': categories_list
     })
 
-
+#тут я покопалась
 @web_bp.route('/events', methods=['POST'])
 @login_required
 def create_event():
@@ -64,3 +64,33 @@ def create_event():
         'event_id': event.id,
         'message': 'Event created successfully'
     }), 201
+
+# Добавьте в app/routes/web_routes.py
+
+@web_bp.route('/schedule')
+@login_required
+def schedule():
+    """Страница с недельным расписанием"""
+    import datetime
+    
+    # Получаем текущую неделю
+    today = datetime.date.today()
+    start_of_week = today - datetime.timedelta(days=today.weekday())
+    
+    # Создаем список дней недели
+    days = []
+    for i in range(7):
+        day_date = start_of_week + datetime.timedelta(days=i)
+        days.append({
+            'name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i],
+            'date': day_date.strftime('%d.%m'),
+            'full_date': day_date.strftime('%Y-%m-%d')
+        })
+    
+    # Формат для input type="week"
+    week_number = today.isocalendar()[1]
+    current_week = f"{today.year}-W{week_number:02d}"
+    
+    return render_template('schedule.html', 
+                          days=days, 
+                          current_week=current_week)
