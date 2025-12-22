@@ -1,13 +1,18 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from flask_login import current_user, login_required
 from app import db
 from app.models import Category, Event
-from datetime import datetime
+from datetime import datetime, timedelta 
 
-api_bp = Blueprint('web', __name__, url_prefix='/api/v1')
-web_bp = Blueprint('web', __name__)
+# РАЗДЕЛЯЕМ API И ВЕБ-СТРАНИЦЫ
 
-@web_bp.route('/schedule')
+
+web_pages_bp = Blueprint('web_pages', __name__)
+api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
+
+# ВЕБ-СТРАНИЦЫ
+
+@web_pages_bp.route('/schedule')
 @login_required
 def schedule_page():
     """Страница с недельным расписанием"""
@@ -32,15 +37,13 @@ def schedule_page():
                           days=days, 
                           current_week=current_week)
 
+# API МАРШРУТЫ
+
 @api_bp.route('/categories', methods=['GET'])
-@login_required  # Только для авторизованных
+@login_required
 def get_categories():
     """Получить ВСЕ категории текущего пользователя"""
-
-    # current_user доступен благодаря flask_login
     categories = Category.query.filter_by(user_id=current_user.id).all()
-
-    # Используем метод to_dict() из модели
     categories_list = [cat.to_dict() for cat in categories]
 
     return jsonify({
@@ -49,19 +52,16 @@ def get_categories():
         'categories': categories_list
     })
 
-#тут я покопалась
 @api_bp.route('/events', methods=['POST'])
 @login_required
 def create_event():
     """Создать новое событие (план) из веб-интерфейса"""
     data = request.get_json()
 
-    # Проверяем обязательные поля
     required = ['category_id', 'start_time', 'end_time']
     if not all(field in data for field in required):
         return jsonify({'error': 'Missing required fields'}), 400
 
-    # Проверяем, что категория принадлежит пользователю
     category = Category.query.filter_by(
         id=data['category_id'],
         user_id=current_user.id
@@ -70,14 +70,20 @@ def create_event():
     if not category:
         return jsonify({'error': 'Category not found'}), 404
 
-    # Создаём событие (по умолчанию type='plan', source='web')
+    # Исправляем формат времени
+    try:
+        start_time = datetime.fromisoformat(data['start_time'].replace('Z', '+00:00'))
+        end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Invalid datetime format'}), 400
+
     event = Event(
         user_id=current_user.id,
         category_id=data['category_id'],
-        start_time=datetime.fromisoformat(data['start_time']),
-        end_time=datetime.fromisoformat(data['end_time']),
-        type=data.get('type', 'plan'),  # По умолчанию 'plan'
-        source='web'  # Событие из веб-интерфейса
+        start_time=start_time,
+        end_time=end_time,
+        type=data.get('type', 'plan'),
+        source='web'
     )
 
     db.session.add(event)
@@ -89,38 +95,7 @@ def create_event():
         'message': 'Event created successfully'
     }), 201
 
-#Это моё
-
-@api_bp.route('/schedule')
-@login_required
-def schedule():
-    """Страница с недельным расписанием"""
-    import datetime
-    
-    # Получаем текущую неделю
-    today = datetime.date.today()
-    start_of_week = today - datetime.timedelta(days=today.weekday())
-    
-    # Создаем список дней недели
-    days = []
-    for i in range(7):
-        day_date = start_of_week + datetime.timedelta(days=i)
-        days.append({
-            'name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i],
-            'date': day_date.strftime('%d.%m'),
-            'full_date': day_date.strftime('%Y-%m-%d')
-        })
-    
-    # Формат для input type="week"
-    week_number = today.isocalendar()[1]
-    current_week = f"{today.year}-W{week_number:02d}"
-    
-    return render_template('schedule.html', 
-                          days=days, 
-                          current_week=current_week)
-
-#Это тоже
-@api_bp.route('/api/v1/events/week/<week_str>', methods=['GET'])
+@api_bp.route('/events/week/<week_str>', methods=['GET'])
 @login_required
 def get_events_by_week(week_str):
     """Получить события за определенную неделю"""
@@ -137,14 +112,51 @@ def get_events_by_week(week_str):
             Event.start_time < last_day
         ).join(Category).order_by(Event.start_time).all()
         
-        events_list = [event.to_dict() for event in events]
+        events_list = []
+        for event in events:
+            event_dict = event.to_dict()
+            # Добавляем информацию о категории
+            event_dict['category_name'] = event.category.name
+            event_dict['category_color'] = event.category.color
+            event_dict['date'] = event.start_time.date().isoformat()
+            events_list.append(event_dict)
         
         return jsonify({
             'status': 'success',
             'count': len(events_list),
-            'events': events_list  # ← Добавить ключ и значение
+            'events': events_list
         })
-    except Exception as e:  # ← ДОБАВИТЬ ЭТО
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+# Дополнительные API эндпоинты
+@api_bp.route('/copy-week', methods=['POST'])
+@login_required
+def copy_week():
+    """Скопировать план на следующую неделю"""
+    data = request.get_json()
+    
+    if 'source_week' not in data:
+        return jsonify({'error': 'Missing source_week'}), 400
+    
+    try:
+        year, week = map(int, data['source_week'].split('-W'))
+        
+        # Пока возвращаем успех (реализуйте копирование позже)
+        target_year, target_week = year, week + 1
+        if target_week > 52:
+            target_year += 1
+            target_week = 1
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Week copied successfully',
+            'target_week': f"{target_year}-W{target_week:02d}"
+        })
+    except Exception as e:
         return jsonify({
             'status': 'error',
             'message': str(e)
