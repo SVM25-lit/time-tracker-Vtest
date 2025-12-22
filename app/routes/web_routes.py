@@ -3,7 +3,6 @@ from flask_login import current_user, login_required
 from app import db
 from app.models import Category, Event
 from datetime import datetime, timedelta
-import json
 
 # ====== Blueprint для веб-страниц ======
 web_pages_bp = Blueprint('web_pages', __name__)
