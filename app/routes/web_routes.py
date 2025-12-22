@@ -118,4 +118,5 @@ def get_events_by_week(week_str):
         return jsonify({
             'status': 'success',
             'count': len(events_list),
-            '
+            'events': events_list  # ← Добавить ключ и значение
+        })
