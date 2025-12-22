@@ -4,10 +4,35 @@ from app import db
 from app.models import Category, Event
 from datetime import datetime
 
-web_bp = Blueprint('web', __name__, url_prefix='/api/v1')
+api_bp = Blueprint('web', __name__, url_prefix='/api/v1')
+web_bp = Blueprint('web', __name__)
 
+@web_bp.route('/schedule')
+@login_required
+def schedule_page():
+    """Страница с недельным расписанием"""
+    today = datetime.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    
+    days = []
+    for i in range(7):
+        day_date = start_of_week + timedelta(days=i)
+        days.append({
+            'name': ['Понедельник', 'Вторник', 'Среда', 'Четверг', 
+                    'Пятница', 'Суббота', 'Воскресенье'][i],
+            'date': day_date.strftime('%d.%m.%Y'),
+            'full_date': day_date.strftime('%Y-%m-%d'),
+            'short_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i]
+        })
+    
+    week_number = today.isocalendar()[1]
+    current_week = f"{today.year}-W{week_number:02d}"
+    
+    return render_template('schedule.html', 
+                          days=days, 
+                          current_week=current_week)
 
-@web_bp.route('/categories', methods=['GET'])
+@api_bp.route('/categories', methods=['GET'])
 @login_required  # Только для авторизованных
 def get_categories():
     """Получить ВСЕ категории текущего пользователя"""
@@ -25,7 +50,7 @@ def get_categories():
     })
 
 #тут я покопалась
-@web_bp.route('/events', methods=['POST'])
+@api_bp.route('/events', methods=['POST'])
 @login_required
 def create_event():
     """Создать новое событие (план) из веб-интерфейса"""
@@ -66,7 +91,7 @@ def create_event():
 
 #Это моё
 
-@web_bp.route('/schedule')
+@api_bp.route('/schedule')
 @login_required
 def schedule():
     """Страница с недельным расписанием"""
@@ -95,7 +120,7 @@ def schedule():
                           current_week=current_week)
 
 #Это тоже
-@web_bp.route('/api/v1/events/week/<week_str>', methods=['GET'])
+@api_bp.route('/api/v1/events/week/<week_str>', methods=['GET'])
 @login_required
 def get_events_by_week(week_str):
     """Получить события за определенную неделю"""
