@@ -20,20 +20,14 @@ def create_app():
     # Регистрация blueprints
     from app.routes.main_routes import main_bp
     from app.routes.auth_routes import auth_bp
-    from app.routes.api_routes import api_bp  # API для Telegram
+    from app.routes.api_routes import api_bp
+    from app.routes.web_routes import web_pages_bp, schedule_api_bp
     
-    # Импортируем ВСЕ Blueprint из web_routes.py
-    from app.routes.web_routes import (
-        web_pages_bp,  # Для веб-страниц (/schedule)
-        schedule_api_bp  # Для API расписания
-    )
-    
-    # Регистрируем Blueprint
-    app.register_blueprint(main_bp)                     # /
-    app.register_blueprint(auth_bp, url_prefix='/auth') # /auth
-    app.register_blueprint(api_bp, url_prefix='/api/v1/telegram')  # /api/v1/telegram
-    app.register_blueprint(web_pages_bp)                # /schedule и другие страницы
-    app.register_blueprint(schedule_api_bp, url_prefix='/api/v1/schedule')  # /api/v1/schedule/...
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    app.register_blueprint(web_pages_bp)  # ← Это даст /schedule
+    app.register_blueprint(schedule_api_bp, url_prefix='/api/v1/schedule')
     
     # Импортируем модели и настраиваем user_loader внутри контекста
     with app.app_context():
