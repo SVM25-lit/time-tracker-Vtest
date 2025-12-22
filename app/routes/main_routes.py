@@ -139,6 +139,52 @@ def manage_events():
     categories = Category.query.filter_by(user_id=current_user.id).all()
     return render_template('events.html', categories=categories)
 
+@main_bp.route('/templates', methods=['GET', 'POST'])
+@login_required
+def manage_templates():
+    """Управление шаблонами пользователя"""
+    if request.method == 'POST':
+        name = request.form.get('name')
+        category_id = request.form.get('category_id')
+        duration_minutes = request.form.get('duration_minutes', 60)
+        description = request.form.get('description', '')
+        
+        if not name or not category_id:
+            flash('Название и категория обязательны', 'danger')
+            return redirect(url_for('main.manage_templates'))
+        
+        # Проверяем, что категория принадлежит пользователю
+        category = Category.query.filter_by(
+            id=category_id, 
+            user_id=current_user.id
+        ).first()
+        
+        if not category:
+            flash('Выберите корректную категорию', 'danger')
+            return redirect(url_for('main.manage_templates'))
+        
+        template = Template(
+            name=name,
+            category_id=category_id,
+            duration_minutes=int(duration_minutes),
+            description=description,
+            user_id=current_user.id
+        )
+        
+        db.session.add(template)
+        db.session.commit()
+        
+        flash(f'Шаблон "{name}" создан!', 'success')
+        return redirect(url_for('main.dashboard'))
+    
+    # Получаем все шаблоны пользователя
+    templates = Template.query.filter_by(user_id=current_user.id).all()
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    return render_template('templates.html', 
+                         templates=templates, 
+                         categories=categories)
+    
 @main_bp.route('/api/my/stats')
 @login_required
 def api_my_stats():
