@@ -32,6 +32,74 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
+# от сюда
+# Добавьте в app/models.py после класса User
+
+class Category(db.Model):
+    __tablename__ = 'categories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(64), nullable=False)
+    color = db.Column(db.String(7), default='#4361ee')  # HEX цвет
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Связи
+    user = db.relationship('User', backref='categories')
+    events = db.relationship('Event', backref='category', lazy='dynamic')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'color': self.color,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class Event(db.Model):
+    __tablename__ = 'events'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    
+    # Временные метки
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    
+    # Тип события: 'plan' (план) или 'fact' (факт)
+    type = db.Column(db.String(10), nullable=False, default='plan')
+    
+    # Источник: 'web' или 'telegram'
+    source = db.Column(db.String(10), nullable=False, default='web')
+    
+    # Дополнительная информация
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Связи
+    user = db.relationship('User', backref='events')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'category_id': self.category_id,
+            'category_name': self.category.name if self.category else None,
+            'category_color': self.category.color if self.category else None,
+            'start_time': self.start_time.strftime('%H:%M'),
+            'end_time': self.end_time.strftime('%H:%M'),
+            'date': self.start_time.strftime('%Y-%m-%d'),
+            'type': self.type,
+            'source': self.source,
+            'description': self.description,
+            'duration': (self.end_time - self.start_time).total_seconds() / 3600
+        }
+
+#до сюда
+
 class Category(db.Model):
     """Категории пользователя"""
     __tablename__ = 'categories'
