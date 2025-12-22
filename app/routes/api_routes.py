@@ -177,3 +177,20 @@ def parse_duration(duration_str):
         # По умолчанию считаем минутами
         minutes = float(re.search(r'[\d.]+', duration_str).group())
         return timedelta(minutes=minutes)
+
+@api_bp.route('/templates/<int:template_id>', methods=['DELETE'])
+@login_required
+def delete_template(template_id):
+    """Удалить шаблон"""
+    template = Template.query.filter_by(
+        id=template_id,
+        user_id=current_user.id
+    ).first()
+    
+    if not template:
+        return jsonify({'status': 'error', 'message': 'Шаблон не найден'}), 404
+    
+    db.session.delete(template)
+    db.session.commit()
+    
+    return jsonify({'status': 'success', 'message': 'Шаблон удален'})
