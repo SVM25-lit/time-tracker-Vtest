@@ -1,0 +1,853 @@
+{% extends "base.html" %}
+
+{% block title %}Расписание - Time Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        overflow-x: auto;
+    }
+    
+    .schedule-header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    .schedule-table {
+        min-width: 1400px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .time-column {
+        width: 80px;
+        background-color: #f8f9fa;
+        font-size: 0.85rem;
+        color: #666;
+        text-align: center;
+        vertical-align: top;
+        padding: 0.5rem;
+        border-right: 1px solid #dee2e6;
+        position: sticky;
+        left: 0;
+        z-index: 50;
+    }
+    
+    .day-column {
+        width: 200px;
+        vertical-align: top;
+        border-right: 1px solid #dee2e6;
+    }
+    
+    .day-header {
+        background-color: #e9ecef;
+        padding: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 60px;
+        z-index: 80;
+    }
+    
+    .plan-header {
+        background-color: #d1e7dd;
+        color: #0f5132;
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #badbcc;
+    }
+    
+    .fact-header {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        padding: 0.5rem;
+        text-align: center;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #bee5eb;
+    }
+    
+    .time-slot {
+        height: 40px;
+        border-bottom: 1px solid #f0f0f0;
+        position: relative;
+    }
+    
+    .plan-cell, .fact-cell {
+        height: 100%;
+        padding: 2px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .plan-cell:hover {
+        background-color: #e8f5e8;
+    }
+    
+    .fact-cell:hover {
+        background-color: #e8f5f5;
+    }
+    
+    .plan-event, .fact-event {
+        border-radius: 4px;
+        padding: 3px 6px;
+        margin: 1px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        border-left: 3px solid;
+    }
+    
+    .plan-event {
+        background-color: rgba(25, 135, 84, 0.1);
+        border-color: #198754;
+    }
+    
+    .fact-event {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-color: #0d6efd;
+    }
+    
+    .current-time {
+        background-color: rgba(255, 193, 7, 0.1);
+        position: relative;
+    }
+    
+    .current-time::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #ffc107;
+        z-index: 10;
+    }
+    
+    .hour-marker {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .schedule-controls {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+    }
+    
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+    }
+    
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        margin-right: 0.5rem;
+    }
+    
+    .category-color {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+    
+    .modal-time-input {
+        max-width: 150px;
+    }
+    
+    @media (max-width: 768px) {
+        .schedule-container {
+            border-radius: 10px;
+        }
+        
+        .schedule-controls {
+            padding: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Панель управления и графики -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Статистика выполнения плана</h5>
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="stat-card bg-primary">
+                                <div class="stat-number" id="today-percentage">0%</div>
+                                <div>Сегодня</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="stat-card bg-success">
+                                <div class="stat-number" id="week-percentage">0%</div>
+                                <div>За неделю</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="stat-card bg-info">
+                                <div class="stat-number" id="total-hours">0ч</div>
+                                <div>Всего часов</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Быстрые действия</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                            <i class="bi bi-plus-circle me-2"></i>Добавить событие
+                        </button>
+                        <button class="btn btn-outline-primary" id="copyWeekBtn">
+                            <i class="bi bi-copy me-2"></i>Скопировать неделю
+                        </button>
+                        <button class="btn btn-outline-success" id="addCategoryBtn">
+                            <i class="bi bi-tag me-2"></i>Новая категория
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Легенда -->
+    <div class="schedule-controls">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h6 class="mb-2">Легенда:</h6>
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: #d1e7dd;"></span>
+                    <span>План</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: #d1ecf1;"></span>
+                    <span>Факт</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background-color: #fff3cd;"></span>
+                    <span>Текущее время</span>
+                </div>
+            </div>
+            <div>
+                <div class="input-group" style="max-width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-calendar-week"></i></span>
+                    <input type="week" class="form-control" id="weekPicker" value="{{ current_week }}">
+                    <button class="btn btn-outline-secondary" type="button" id="prevWeekBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button" id="nextWeekBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" type="button" id="currentWeekBtn">
+                        Сегодня
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Основная таблица расписания -->
+    <div class="schedule-container">
+        <div class="schedule-header">
+            <h5 class="mb-0">Недельное расписание (шаг 15 минут)</h5>
+            <small class="opacity-75">4:00 - 22:30</small>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th class="time-column">Время</th>
+                        {% for day in days %}
+                        <th class="day-column">
+                            <div class="day-header">
+                                {{ day.name }}<br>
+                                <small>{{ day.date }}</small>
+                            </div>
+                            <div class="plan-header">План</div>
+                            <div class="fact-header">Факт</div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody">
+                    <!-- Время будет заполнено JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно добавления события -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить событие</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addEventForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип события</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="eventType" id="typePlan" value="plan" checked>
+                                <label class="btn btn-outline-success" for="typePlan">План</label>
+                                
+                                <input type="radio" class="btn-check" name="eventType" id="typeFact" value="fact">
+                                <label class="btn btn-outline-primary" for="typeFact">Факт</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="categorySelect" class="form-label">Категория</label>
+                            <select class="form-select" id="categorySelect" required>
+                                <option value="">Выберите категорию</option>
+                                <!-- Категории будут заполнены через JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="startDate" class="form-label">Дата начала</label>
+                            <input type="date" class="form-control" id="startDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="startTime" class="form-label">Время начала</label>
+                            <select class="form-select" id="startTime" required>
+                                <!-- Время будет заполнено JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="endDate" class="form-label">Дата окончания</label>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="endTime" class="form-label">Время окончания</label>
+                            <select class="form-select" id="endTime" required>
+                                <!-- Время будет заполнено JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="eventDescription" class="form-label">Описание (необязательно)</label>
+                        <textarea class="form-control" id="eventDescription" rows="2" placeholder="Дополнительные детали..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Добавить событие</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания категории -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Новая категория</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="categoryForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Название категории</label>
+                        <input type="text" class="form-control" id="categoryName" required placeholder="Например: Работа, Учёба, Спорт...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryColor" class="form-label">Цвет категории</label>
+                        <div class="d-flex flex-wrap gap-2" id="colorPicker">
+                            <!-- Цвета будут добавлены JavaScript -->
+                        </div>
+                        <input type="hidden" id="selectedColor" value="#4361ee" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Описание (необязательно)</label>
+                        <textarea class="form-control" id="categoryDescription" rows="2" placeholder="Описание категории..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать категорию</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scheduleBody = document.getElementById('scheduleBody');
+    const weekPicker = document.getElementById('weekPicker');
+    const currentWeekBtn = document.getElementById('currentWeekBtn');
+    const prevWeekBtn = document.getElementById('prevWeekBtn');
+    const nextWeekBtn = document.getElementById('nextWeekBtn');
+    const copyWeekBtn = document.getElementById('copyWeekBtn');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const colorPicker = document.getElementById('colorPicker');
+    const categorySelect = document.getElementById('categorySelect');
+    
+    // Конфигурация времени
+    const START_HOUR = 4;
+    const END_HOUR = 22.5; // 22:30
+    const TIME_SLOT_MINUTES = 15;
+    
+    let currentWeek = getCurrentWeek();
+    let categories = [];
+    let events = [];
+    
+    // Инициализация
+    initSchedule();
+    loadCategories();
+    loadEvents();
+    initColorPicker();
+    initTimeSelects();
+    
+    // Функции
+    
+    function getCurrentWeek() {
+        const today = new Date();
+        const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
+        const pastDaysOfYear = (today - firstDayOfYear) / 86400000;
+        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        
+        const year = today.getFullYear();
+        return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+    }
+    
+    function initSchedule() {
+        scheduleBody.innerHTML = '';
+        
+        for (let hour = START_HOUR; hour < END_HOUR; hour += 0.25) {
+            const hourInt = Math.floor(hour);
+            const minute = (hour - hourInt) * 60;
+            
+            const timeString = `${hourInt.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            const isHourMark = minute === 0;
+            
+            const row = document.createElement('tr');
+            
+            if (isHourMark) {
+                row.classList.add('hour-marker');
+            }
+            
+            // Проверка текущего времени
+            const now = new Date();
+            const currentHour = now.getHours() + now.getMinutes() / 60;
+            if (Math.abs(currentHour - hour) < 0.125) {
+                row.classList.add('current-time');
+            }
+            
+            // Колонка времени
+            const timeCell = document.createElement('td');
+            timeCell.className = 'time-column';
+            timeCell.textContent = timeString;
+            row.appendChild(timeCell);
+            
+            // Колонки для каждого дня
+            for (let i = 0; i < 7; i++) {
+                const planCell = document.createElement('td');
+                planCell.className = 'plan-cell';
+                planCell.dataset.time = timeString;
+                planCell.dataset.day = i;
+                planCell.dataset.type = 'plan';
+                planCell.addEventListener('click', handleCellClick);
+                
+                const factCell = document.createElement('td');
+                factCell.className = 'fact-cell';
+                factCell.dataset.time = timeString;
+                factCell.dataset.day = i;
+                factCell.dataset.type = 'fact';
+                factCell.addEventListener('click', handleCellClick);
+                
+                const dayCell = document.createElement('td');
+                dayCell.className = 'day-column';
+                dayCell.appendChild(planCell);
+                dayCell.appendChild(factCell);
+                
+                row.appendChild(dayCell);
+            }
+            
+            scheduleBody.appendChild(row);
+        }
+    }
+    
+    function handleCellClick(event) {
+        const cell = event.currentTarget;
+        const time = cell.dataset.time;
+        const day = parseInt(cell.dataset.day);
+        const type = cell.dataset.type;
+        
+        // Получаем дату из выбранной недели
+        const [year, week] = weekPicker.value.split('-W');
+        const date = getDateFromWeek(year, week, day);
+        
+        // Показываем модальное окно с предзаполненными данными
+        const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+        document.getElementById('eventType').value = type;
+        document.getElementById('startDate').value = date;
+        document.getElementById('endDate').value = date;
+        document.getElementById('startTime').value = time;
+        
+        // Рассчитываем время окончания (+1 час по умолчанию)
+        const [hours, minutes] = time.split(':').map(Number);
+        let endHour = hours + 1;
+        if (endHour >= END_HOUR) endHour = END_HOUR - 0.25;
+        const endTime = `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        document.getElementById('endTime').value = endTime;
+        
+        modal.show();
+    }
+    
+    function getDateFromWeek(year, week, day) {
+        const firstDay = new Date(year, 0, 1);
+        const days = (week - 1) * 7 + day;
+        const date = new Date(year, 0, firstDay.getDate() + days);
+        return date.toISOString().split('T')[0];
+    }
+    
+    function loadCategories() {
+        // Загрузка категорий через API
+        fetch('/api/v1/categories')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    categories = data.categories;
+                    updateCategorySelect();
+                    updateCategoryColors();
+                }
+            })
+            .catch(error => console.error('Error loading categories:', error));
+    }
+    
+    function updateCategorySelect() {
+        categorySelect.innerHTML = '<option value="">Выберите категорию</option>';
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            option.dataset.color = category.color;
+            categorySelect.appendChild(option);
+        });
+    }
+    
+    function updateCategoryColors() {
+        // Обновляем цвета категорий в расписании
+        // Реализуем при загрузке событий
+    }
+    
+    function loadEvents() {
+        // Загрузка событий через API
+        const [year, week] = weekPicker.value.split('-W');
+        fetch(`/api/v1/events?week=${year}-${week}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    events = data.events;
+                    renderEvents();
+                    updateStatistics();
+                }
+            })
+            .catch(error => console.error('Error loading events:', error));
+    }
+    
+    function renderEvents() {
+        // Очищаем все события
+        document.querySelectorAll('.plan-event, .fact-event').forEach(el => el.remove());
+        
+        events.forEach(event => {
+            const startHour = parseFloat(event.start_time.split(':')[0]) + 
+                            parseFloat(event.start_time.split(':')[1]) / 60;
+            const endHour = parseFloat(event.end_time.split(':')[0]) + 
+                          parseFloat(event.end_time.split(':')[1]) / 60;
+            
+            const duration = (endHour - startHour) * 4; // В слотах по 15 минут
+            const startSlot = Math.round((startHour - START_HOUR) * 4);
+            
+            const day = new Date(event.date).getDay();
+            const adjustedDay = day === 0 ? 6 : day - 1; // Приводим к 0-6 (пн-вс)
+            
+            const row = scheduleBody.children[startSlot];
+            if (!row) return;
+            
+            const cell = row.children[adjustedDay + 1]; // +1 для колонки времени
+            const targetCell = event.type === 'plan' ? 
+                cell.querySelector('.plan-cell') : 
+                cell.querySelector('.fact-cell');
+            
+            const eventDiv = document.createElement('div');
+            eventDiv.className = event.type === 'plan' ? 'plan-event' : 'fact-event';
+            eventDiv.textContent = event.category_name;
+            eventDiv.title = `${event.category_name}\n${event.start_time} - ${event.end_time}`;
+            eventDiv.style.borderLeftColor = event.category_color;
+            
+            if (duration > 1) {
+                eventDiv.style.height = `calc(${duration * 40}px - 2px)`;
+                eventDiv.style.position = 'absolute';
+                eventDiv.style.top = '0';
+                eventDiv.style.left = '2px';
+                eventDiv.style.right = '2px';
+                eventDiv.style.zIndex = '1';
+            }
+            
+            targetCell.appendChild(eventDiv);
+        });
+    }
+    
+    function updateStatistics() {
+        // Рассчитываем статистику
+        let planHours = 0;
+        let factHours = 0;
+        
+        events.forEach(event => {
+            const start = new Date(`1970-01-01T${event.start_time}`);
+            const end = new Date(`1970-01-01T${event.end_time}`);
+            const duration = (end - start) / (1000 * 60 * 60);
+            
+            if (event.type === 'plan') {
+                planHours += duration;
+            } else {
+                factHours += duration;
+            }
+        });
+        
+        const todayPercentage = planHours > 0 ? Math.round((factHours / planHours) * 100) : 0;
+        
+        document.getElementById('today-percentage').textContent = `${todayPercentage}%`;
+        document.getElementById('week-percentage').textContent = `${todayPercentage}%`;
+        document.getElementById('total-hours').textContent = `${Math.round(factHours)}ч`;
+    }
+    
+    function initColorPicker() {
+        const colors = [
+            '#4361ee', '#3a0ca3', '#4cc9f0', '#7209b7', '#f72585',
+            '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#264653',
+            '#06d6a0', '#118ab2', '#ef476f', '#ffd166', '#8338ec'
+        ];
+        
+        colors.forEach(color => {
+            const colorDiv = document.createElement('div');
+            colorDiv.className = 'color-option';
+            colorDiv.style.width = '30px';
+            colorDiv.style.height = '30px';
+            colorDiv.style.backgroundColor = color;
+            colorDiv.style.borderRadius = '50%';
+            colorDiv.style.cursor = 'pointer';
+            colorDiv.style.border = '2px solid transparent';
+            colorDiv.dataset.color = color;
+            
+            colorDiv.addEventListener('click', function() {
+                document.querySelectorAll('.color-option').forEach(opt => {
+                    opt.style.borderColor = 'transparent';
+                });
+                this.style.borderColor = '#333';
+                document.getElementById('selectedColor').value = color;
+            });
+            
+            colorPicker.appendChild(colorDiv);
+        });
+        
+        // Выбираем первый цвет по умолчанию
+        if (colorPicker.firstChild) {
+            colorPicker.firstChild.style.borderColor = '#333';
+        }
+    }
+    
+    function initTimeSelects() {
+        const startTimeSelect = document.getElementById('startTime');
+        const endTimeSelect = document.getElementById('endTime');
+        
+        startTimeSelect.innerHTML = '';
+        endTimeSelect.innerHTML = '';
+        
+        for (let hour = START_HOUR; hour < END_HOUR; hour += 0.25) {
+            const hourInt = Math.floor(hour);
+            const minute = (hour - hourInt) * 60;
+            const timeString = `${hourInt.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            
+            const option1 = document.createElement('option');
+            option1.value = timeString;
+            option1.textContent = timeString;
+            startTimeSelect.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = timeString;
+            option2.textContent = timeString;
+            endTimeSelect.appendChild(option2);
+        }
+    }
+    
+    // Обработчики событий
+    
+    weekPicker.addEventListener('change', function() {
+        loadEvents();
+    });
+    
+    currentWeekBtn.addEventListener('click', function() {
+        weekPicker.value = getCurrentWeek();
+        loadEvents();
+    });
+    
+    prevWeekBtn.addEventListener('click', function() {
+        const [year, week] = weekPicker.value.split('-W');
+        let newWeek = parseInt(week) - 1;
+        let newYear = parseInt(year);
+        
+        if (newWeek < 1) {
+            newYear--;
+            newWeek = 52;
+        }
+        
+        weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
+        loadEvents();
+    });
+    
+    nextWeekBtn.addEventListener('click', function() {
+        const [year, week] = weekPicker.value.split('-W');
+        let newWeek = parseInt(week) + 1;
+        let newYear = parseInt(year);
+        
+        if (newWeek > 52) {
+            newYear++;
+            newWeek = 1;
+        }
+        
+        weekPicker.value = `${newYear}-W${newWeek.toString().padStart(2, '0')}`;
+        loadEvents();
+    });
+    
+    copyWeekBtn.addEventListener('click', function() {
+        if (confirm('Скопировать план текущей недели на следующую неделю?')) {
+            // Реализация копирования недели
+            fetch('/api/v1/copy-week', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_week: weekPicker.value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Неделя успешно скопирована!');
+                    weekPicker.value = data.target_week;
+                    loadEvents();
+                }
+            });
+        }
+    });
+    
+    addCategoryBtn.addEventListener('click', function() {
+        const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        modal.show();
+    });
+    
+    // Форма добавления категории
+    document.getElementById('categoryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const categoryData = {
+            name: document.getElementById('categoryName').value,
+            color: document.getElementById('selectedColor').value,
+            description: document.getElementById('categoryDescription').value
+        };
+        
+        fetch('/api/v1/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(categoryData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Категория создана успешно!');
+                bootstrap.Modal.getInstance(document.getElementById('categoryModal')).hide();
+                loadCategories();
+                
+                // Очистка формы
+                document.getElementById('categoryForm').reset();
+            }
+        });
+    });
+    
+    // Форма добавления события
+    document.getElementById('addEventForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const eventData = {
+            category_id: document.getElementById('categorySelect').value,
+            start_date: document.getElementById('startDate').value,
+            start_time: document.getElementById('startTime').value,
+            end_date: document.getElementById('endDate').value,
+            end_time: document.getElementById('endTime').value,
+            type: document.querySelector('input[name="eventType"]:checked').value,
+            description: document.getElementById('eventDescription').value
+        };
+        
+        fetch('/api/v1/events', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(eventData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Событие добавлено успешно!');
+                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+                loadEvents();
+                
+                // Очистка формы
+                document.getElementById('addEventForm').reset();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
