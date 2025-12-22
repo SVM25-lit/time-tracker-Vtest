@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
+from flask_login import login_required
 from app import db
-from app.models import User, Category, Event
+from app.models import User, Category, Event, Template
 from app.auth import telegram_auth_required
 from datetime import datetime
 import re
