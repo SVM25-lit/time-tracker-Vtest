@@ -21,12 +21,13 @@ def create_app():
     from app.routes.main_routes import main_bp
     from app.routes.auth_routes import auth_bp
     from app.routes.api_routes import api_bp
-    from app.routes.web_routes import web_bp
+    from app.routes.web_routes import web_pages_bp, api_bp as web_api_bp  # ← Изменено!
     
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(web_bp)
+    app.register_blueprint(web_pages_bp)  # ← Для страницы /schedule
+    app.register_blueprint(web_api_bp)    # ← Для API /api/v1
     
     # Импортируем модели и настраиваем user_loader внутри контекста
     with app.app_context():
