@@ -141,7 +141,8 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
+            <!-- ИСПРАВЛЕНО: заменил main.dashboard на main.schedule -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.schedule') if current_user.is_authenticated else url_for('auth.login') }}">
                 <i class="bi bi-clock me-2"></i>
                 <span>Time Tracker</span>
             </a>
