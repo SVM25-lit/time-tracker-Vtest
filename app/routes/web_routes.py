@@ -120,3 +120,8 @@ def get_events_by_week(week_str):
             'count': len(events_list),
             'events': events_list  # ← Добавить ключ и значение
         })
+    except Exception as e:  # ← ДОБАВИТЬ ЭТО
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
