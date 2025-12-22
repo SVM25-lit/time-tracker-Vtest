@@ -2,7 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 
-# Создаем экземпляры здесь
+# Создаем экземпляры ТОЛЬКО здесь
 db = SQLAlchemy()
 login_manager = LoginManager()
 
@@ -14,11 +14,8 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     
-    # Импортируем User для login_manager ТОЛЬКО после инициализации
-    @login_manager.user_loader
-    def load_user(user_id):
-        from app.models import User  # Ленивый импорт
-        return User.query.get(int(user_id))
+    # Устанавливаем login view
+    login_manager.login_view = 'auth.login'
     
     # Регистрация blueprints
     from app.routes.main_routes import main_bp
@@ -31,10 +28,17 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(web_bp)
     
-    # Создаем таблицы в контексте приложения
+    # Импортируем модели и настраиваем user_loader внутри контекста
     with app.app_context():
-        # Импортируем модели внутри контекста
-        from app import models
+        # Импортируем модели
+        from app.models import User
+        
+        # Настраиваем user_loader
+        @login_manager.user_loader
+        def load_user(user_id):
+            return User.query.get(int(user_id))
+        
+        # Создаем таблицы
         db.create_all()
     
     return app
