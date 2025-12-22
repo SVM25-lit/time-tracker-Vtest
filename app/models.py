@@ -1,16 +1,10 @@
 from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# Импортируем db из __init__.py
 from app import db
-
-# Удалите декоратор @login_manager.user_loader из этого файла
-# Он теперь находится в __init__.py
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
-    __table_args__ = {'extend_existing': True}
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), nullable=False)
@@ -30,10 +24,6 @@ class User(UserMixin, db.Model):
 
 class Category(db.Model):
     __tablename__ = 'categories'
-    __table_args__ = (
-        {'extend_existing': True},
-        db.UniqueConstraint('user_id', 'name', name='unique_category_per_user')
-    )
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -41,6 +31,10 @@ class Category(db.Model):
     color = db.Column(db.String(7), default='#4361ee')
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='unique_category_per_user'),
+    )
     
     def to_dict(self):
         return {
@@ -57,11 +51,6 @@ class Category(db.Model):
 
 class Event(db.Model):
     __tablename__ = 'events'
-    __table_args__ = (
-        {'extend_existing': True},
-        db.Index('idx_event_user', 'user_id'),
-        db.Index('idx_event_user_time', 'user_id', 'start_time')
-    )
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -72,6 +61,11 @@ class Event(db.Model):
     source = db.Column(db.String(10), nullable=False, default='web')
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_event_user', 'user_id'),
+        db.Index('idx_event_user_time', 'user_id', 'start_time'),
+    )
     
     def to_dict(self):
         return {
@@ -91,7 +85,6 @@ class Event(db.Model):
 
 class Template(db.Model):
     __tablename__ = 'templates'
-    __table_args__ = {'extend_existing': True}
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
